@@ -20,13 +20,18 @@ const register = async ({ username, email, password, role }) => {
 
 const login = async ({ email, password }) => {
   const user = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
-  if (user.rows.length === 0) throw new Error("Email not found");
+  if (user.rows.length === 0) throw new Error("Email không tồn tại");
 
   const isMatch = await bcrypt.compare(password, user.rows[0].password);
-  if (!isMatch) throw new Error("Invalid password");
+  if (!isMatch) throw new Error("Password không đúng");
 
   const token = jwt.sign(
-    { id: user.rows[0].id, role: user.rows[0].role },
+    {
+      id: user.rows[0].id,
+      username: user.rows[0].username,
+      email: user.rows[0].email,
+      role: user.rows[0].role
+    },
     process.env.JWT_SECRET,
     { expiresIn: "1d" }
   );
