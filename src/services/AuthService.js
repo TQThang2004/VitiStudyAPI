@@ -5,14 +5,14 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const register = async ({ name, email, password }) => {
+const register = async ({ username, email, password, role }) => {
   const checkUser = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
   if (checkUser.rows.length > 0) throw new Error("Email already exists");
 
   const hashed = await bcrypt.hash(password, 10);
   const result = await pool.query(
-    "INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4) RETURNING id, name, email, role",
-    [name, email, hashed, "student"]
+    "INSERT INTO users (username, email, password, role) VALUES ($1, $2, $3, $4) RETURNING id, username, email, role",
+    [username, email, hashed, role]
   );
 
   return result.rows[0];
@@ -35,7 +35,7 @@ const login = async ({ email, password }) => {
     token,
     user: {
       id: user.rows[0].id,
-      name: user.rows[0].name,
+      username: user.rows[0].username,
       email: user.rows[0].email,
       role: user.rows[0].role,
     },
