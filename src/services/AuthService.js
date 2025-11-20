@@ -7,7 +7,7 @@ dotenv.config();
 
 const register = async ({ username, email, password, role }) => {
   const checkUser = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
-  if (checkUser.rows.length > 0) throw new Error("Email already exists");
+  if (checkUser.rows.length > 0) throw new Error("Email đã được sử dụng");
 
   const hashed = await bcrypt.hash(password, 10);
   const result = await pool.query(

@@ -3,6 +3,9 @@ import dotenv from "dotenv";
 import cors from "cors";
 import connectDB from "./src/config/db.js";
 import authRoutes from "./src/routes/AuthRouter.js";
+import courseRoutes from "./src/routes/courseRoutes.js";
+
+
 
 dotenv.config();
 
@@ -12,6 +15,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use("/api/auth", authRoutes);
+app.use("/api/courses", courseRoutes);
 
 app.get("/", (req, res) => res.send("E-learning API with PostgreSQL"));
 
