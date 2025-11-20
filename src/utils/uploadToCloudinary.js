@@ -14,6 +14,6 @@ export const uploadToCloudinary = (fileBuffer) => {
       }
     );
 
-    stream.end(fileBuffer); // 🔥 quan trọng
+    stream.end(fileBuffer); 
   });
 };
