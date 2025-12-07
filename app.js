@@ -6,6 +6,7 @@ import authRoutes from "./src/routes/AuthRouter.js";
 import courseRoutes from "./src/routes/courseRoutes.js";
 import sectionsRouter from "./src/routes/sectionRoutes.js";
 import lessonsRouter from "./src/routes/lessonRoutes.js";
+import examRoutes from "./src/routes/ExamRouter.js";
 
 dotenv.config();
 
@@ -18,6 +19,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/courses", courseRoutes);
 app.use("/api/sections", sectionsRouter); // <-- mount router sections
 app.use("/api/lessons", lessonsRouter);
+app.use("/api/exams", examRoutes);
+
 
 app.get("/", (req, res) => res.send("E-learning API with PostgreSQL"));
 
