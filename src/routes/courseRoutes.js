@@ -22,7 +22,6 @@ const courseValidation = [
 
 router.get("/", getCourses);
 
-// ⭐ THIẾU ROUTE NÀY — PHẢI THÊM ⭐
 router.get("/teacher/:teacherId", getCoursesByTeacher);
 
 router.get("/:id", getCourseById);
