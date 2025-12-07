@@ -1,4 +1,4 @@
-import db from "../config/db.js";
+import db from "../../config/db.js";
 
 const courseService = {
   // 📌 Lấy danh sách khóa học
@@ -94,6 +94,23 @@ const courseService = {
 
     return result.rows[0];
   },
+
+  async getByTeacherId(teacherId) {
+    const query = `
+    SELECT 
+      c.*, 
+      u.username AS teacher_name, 
+      u.avatar AS teacher_avatar
+    FROM courses c
+    LEFT JOIN users u ON c.teacher_id = u.id
+    WHERE c.teacher_id = $1
+    ORDER BY c.created_at DESC
+  `;
+
+    const result = await db.query(query, [teacherId]);
+    return result.rows;
+  },
+
 
   // 📌 Xóa khóa học
   async deleteCourse(id) {

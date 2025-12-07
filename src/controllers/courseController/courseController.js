@@ -1,7 +1,7 @@
 import { validationResult } from "express-validator";
-import courseService from "../services/courseService.js";
-import { success, error } from "../utils/response.js";
-import { uploadToCloudinary } from "../utils/uploadToCloudinary.js"; // 🔥 Quan trọng
+import courseService from "../../services/courseService/courseService.js";
+import { success, error } from "../../utils/response.js";
+import { uploadToGCS } from "../../utils/uploadFile.js";
 
 // =========================
 // 📌 Lấy danh sách khóa học
@@ -10,6 +10,21 @@ export const getCourses = async (req, res) => {
   try {
     const courses = await courseService.getAll();
     return success(res, courses, "Fetched courses successfully");
+  } catch (err) {
+    return error(res, err.message);
+  }
+};
+
+// =========================
+// 📌 Lấy khóa học theo giáo viên
+// =========================
+export const getCoursesByTeacher = async (req, res) => {
+  try {
+    const teacherId = req.params.teacherId;
+
+    const courses = await courseService.getByTeacherId(teacherId);
+
+    return success(res, courses, "Fetched courses by teacher successfully");
   } catch (err) {
     return error(res, err.message);
   }
@@ -29,6 +44,9 @@ export const getCourseById = async (req, res) => {
   }
 };
 
+// =========================
+// 📌 Tạo khóa học — Upload ảnh thumbnail lên Google Cloud
+// =========================
 export const createCourse = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return error(res, errors.array()[0].msg, 400);
@@ -36,9 +54,9 @@ export const createCourse = async (req, res) => {
   try {
     let thumbnailUrl = null;
 
-    // Nếu có file upload thì push lên Cloudinary
+    // 🔥 Upload thumbnail lên Google Cloud Storage
     if (req.file) {
-      thumbnailUrl = await uploadToCloudinary(req.file.buffer); // 🔥 dùng buffer
+      thumbnailUrl = await uploadToGCS(req.file, "thumbnails");
     }
 
     const course = await courseService.createCourse({
@@ -48,6 +66,7 @@ export const createCourse = async (req, res) => {
 
     return success(res, course, "Course created successfully");
   } catch (err) {
+    console.error("Create course error:", err);
     return error(res, err.message);
   }
 };

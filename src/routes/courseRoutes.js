@@ -4,10 +4,11 @@ import upload from "../middlewares/upload.js";
 import {
   getCourses,
   getCourseById,
+  getCoursesByTeacher,
   createCourse,
   updateCourse,
   deleteCourse
-} from "../controllers/courseController.js";
+} from "../controllers/courseController/courseController.js";
 
 const router = express.Router();
 
@@ -20,9 +21,12 @@ const courseValidation = [
 ];
 
 router.get("/", getCourses);
+
+// ⭐ THIẾU ROUTE NÀY — PHẢI THÊM ⭐
+router.get("/teacher/:teacherId", getCoursesByTeacher);
+
 router.get("/:id", getCourseById);
 
-// Upload ảnh thumbnail
 router.post(
   "/create",
   upload.single("thumbnail"),
