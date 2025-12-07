@@ -33,7 +33,7 @@ const login = async ({ email, password }) => {
       role: user.rows[0].role
     },
     process.env.JWT_SECRET,
-    { expiresIn: "1d" }
+    { expiresIn: "100d" }
   );
 
   return {
