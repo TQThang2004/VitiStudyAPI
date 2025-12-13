@@ -1,6 +1,7 @@
 import express from "express";
 import { body } from "express-validator";
 import { createExam, getExam } from "../controllers/ExamController.js";
+import { generateAIExam } from "../controllers/AIExamController.js";
 import authMiddleware from "../middlewares/AuthMiddleware.js";
 import checkRoles from "../middlewares/CheckRole.js"
 
@@ -43,6 +44,24 @@ examRouter.post("/create",
 examRouter.get("/:id",
     authMiddleware,
     getExam
+);
+
+/**
+ * Validation rules for AI exam generation
+ */
+const generateAIExamValidation = [
+    body("title").notEmpty().withMessage("title is required"),
+    body("subject").notEmpty().withMessage("subject is required"),
+    body("topic").notEmpty().withMessage("topic is required"),
+    body("difficulty").optional().isIn(["easy", "medium", "hard"]).withMessage("difficulty must be easy, medium, or hard"),
+    body("numQuestions").optional().isInt({ min: 1, max: 50 }).withMessage("numQuestions must be between 1 and 50"),
+];
+
+examRouter.post("/generate-ai",
+    authMiddleware,
+    checkRoles(["admin", "teacher"]),
+    generateAIExamValidation,
+    generateAIExam
 );
 
 export default examRouter;
