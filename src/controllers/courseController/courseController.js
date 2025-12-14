@@ -3,9 +3,52 @@ import courseService from "../../services/courseService/courseService.js";
 import { success, error } from "../../utils/response.js";
 import { uploadToGCS } from "../../utils/uploadFile.js";
 
-// =========================
-// 📌 Lấy danh sách khóa học
-// =========================
+/* =====================================================
+ 🤖 TẠO KHÓA HỌC BẰNG AI
+===================================================== */
+export const createCourseWithAI = async (req, res) => {
+  try {
+    const {
+      teacher_id,
+      subject,
+      topic,
+      level,
+      numSections,
+      lessonsPerSection
+    } = req.body;
+
+    // Validate tối thiểu
+    if (!teacher_id || !subject || !topic) {
+      return error(
+        res,
+        "teacher_id, subject và topic là bắt buộc",
+        400
+      );
+    }
+
+    const result = await courseService.createCourseWithAI({
+      teacher_id,
+      subject,
+      topic,
+      level,
+      numSections,
+      lessonsPerSection
+    });
+
+    return success(
+      res,
+      result.course,
+      "Course created with AI successfully"
+    );
+  } catch (err) {
+    console.error("Create course with AI error:", err);
+    return error(res, err.message);
+  }
+};
+
+/* =====================================================
+ 📌 LẤY DANH SÁCH KHÓA HỌC
+===================================================== */
 export const getCourses = async (req, res) => {
   try {
     const courses = await courseService.getAll();
@@ -15,24 +58,22 @@ export const getCourses = async (req, res) => {
   }
 };
 
-// =========================
-// 📌 Lấy khóa học theo giáo viên
-// =========================
+/* =====================================================
+ 📌 LẤY KHÓA HỌC THEO GIÁO VIÊN
+===================================================== */
 export const getCoursesByTeacher = async (req, res) => {
   try {
     const teacherId = req.params.teacherId;
-
     const courses = await courseService.getByTeacherId(teacherId);
-
     return success(res, courses, "Fetched courses by teacher successfully");
   } catch (err) {
     return error(res, err.message);
   }
 };
 
-// =========================
-// 📌 Lấy chi tiết 1 khóa học
-// =========================
+/* =====================================================
+ 📌 LẤY CHI TIẾT KHÓA HỌC
+===================================================== */
 export const getCourseById = async (req, res) => {
   try {
     const course = await courseService.getById(req.params.id);
@@ -44,17 +85,18 @@ export const getCourseById = async (req, res) => {
   }
 };
 
-// =========================
-// 📌 Tạo khóa học — Upload ảnh thumbnail lên Google Cloud
-// =========================
+/* =====================================================
+ 📌 TẠO KHÓA HỌC THỦ CÔNG + UPLOAD THUMBNAIL
+===================================================== */
 export const createCourse = async (req, res) => {
   const errors = validationResult(req);
-  if (!errors.isEmpty()) return error(res, errors.array()[0].msg, 400);
+  if (!errors.isEmpty()) {
+    return error(res, errors.array()[0].msg, 400);
+  }
 
   try {
     let thumbnailUrl = null;
 
-    // 🔥 Upload thumbnail lên Google Cloud Storage
     if (req.file) {
       thumbnailUrl = await uploadToGCS(req.file, "thumbnails");
     }
@@ -71,15 +113,21 @@ export const createCourse = async (req, res) => {
   }
 };
 
-// =========================
-// 📌 Cập nhật khóa học
-// =========================
+/* =====================================================
+ 📌 CẬP NHẬT KHÓA HỌC
+===================================================== */
 export const updateCourse = async (req, res) => {
   const errors = validationResult(req);
-  if (!errors.isEmpty()) return error(res, errors.array()[0].msg, 400);
+  if (!errors.isEmpty()) {
+    return error(res, errors.array()[0].msg, 400);
+  }
 
   try {
-    const updated = await courseService.updateCourse(req.params.id, req.body);
+    const updated = await courseService.updateCourse(
+      req.params.id,
+      req.body
+    );
+
     if (!updated) return error(res, "Course not found", 404);
 
     return success(res, updated, "Course updated successfully");
@@ -88,9 +136,9 @@ export const updateCourse = async (req, res) => {
   }
 };
 
-// =========================
-// 📌 Xóa khóa học
-// =========================
+/* =====================================================
+ 📌 XÓA KHÓA HỌC
+===================================================== */
 export const deleteCourse = async (req, res) => {
   try {
     const deleted = await courseService.deleteCourse(req.params.id);

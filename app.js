@@ -17,7 +17,7 @@ app.use(express.json());
 
 app.use("/api/auth", authRoutes);
 app.use("/api/courses", courseRoutes);
-app.use("/api/sections", sectionsRouter); // <-- mount router sections
+app.use("/api/sections", sectionsRouter);
 app.use("/api/lessons", lessonsRouter);
 app.use("/api/exams", examRoutes);
 
