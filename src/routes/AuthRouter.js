@@ -1,6 +1,8 @@
 import express from "express";
 import { body } from "express-validator";
-import { register, login } from "../controllers/AuthController.js";
+import { register, login, updateUser, getUserById, getAllUsers } from "../controllers/AuthController.js";
+import authMiddleware from "../middlewares/AuthMiddleware.js";
+import upload from "../middlewares/upload.js";
 
 const authRouter = express.Router();
 
@@ -17,7 +19,15 @@ const loginValidation = [
   body("password").notEmpty().withMessage("Password is required"),
 ];
 
+const updateUserValidation = [
+  body("username").optional().notEmpty().withMessage("Username cannot be empty"),
+  body("email").optional().isEmail().withMessage("Invalid email format"),
+];
+
 authRouter.post("/register", registerValidation, register);
 authRouter.post("/login", loginValidation, login);
+authRouter.put("/update", authMiddleware, upload.single("avatar"), updateUserValidation, updateUser);
+authRouter.get("/users", authMiddleware, getAllUsers);
+authRouter.get("/users/:id", authMiddleware, getUserById);
 
 export default authRouter;
