@@ -40,6 +40,29 @@ export const createLesson = async (req, res) => {
   }
 };
 
+export const uploadLessonContent = async (req, res) => {
+  try {
+    const lessonId = req.params.lessonId;
+    const { type } = req.body;
+
+    if (!req.file) return error(res, "File is required", 400);
+    if (!["video", "document"].includes(type))
+      return error(res, "Invalid content type", 400);
+
+    const fileUrl = await uploadToGCS(req.file, "lessons");
+
+    const updatedLesson = await lessonService.updateLessonContent(
+      lessonId,
+      { type, url: fileUrl }
+    );
+
+    return success(res, updatedLesson, "Lesson content uploaded");
+  } catch (err) {
+    console.error(err);
+    return error(res, err.message);
+  }
+};
+
 export const deleteLesson = async (req, res) => {
   try {
     const lessonId = req.params.lessonId;
