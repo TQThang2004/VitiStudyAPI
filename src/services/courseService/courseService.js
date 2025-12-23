@@ -181,7 +181,108 @@ FORMAT JSON CHÍNH XÁC:
     }
   },
 
-  // ================== CÁC HÀM CŨ ==================
+  // ================== UPDATE COURSE METADATA ==================
+  async updateCourseMetadata(courseId, { price, thumbnail }) {
+    const fields = [];
+    const values = [];
+    let idx = 1;
+
+    if (price !== undefined) {
+      fields.push(`price = $${idx++}`);
+      values.push(price);
+    }
+
+    if (thumbnail) {
+      fields.push(`thumbnail = $${idx++}`);
+      values.push(thumbnail);
+    }
+
+    if (fields.length === 0) return null;
+
+    const query = `
+    UPDATE courses
+    SET ${fields.join(", ")}
+    WHERE id = $${idx}
+    RETURNING *
+  `;
+
+    values.push(courseId);
+
+    const result = await db.query(query, values);
+    return result.rows[0];
+  },
+
+  // ================== STUDENT ENROLL COURSE ==================
+  async enrollCourse({ student_id, course_id }) {
+    const client = await db.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      // 1️⃣ Check user tồn tại & là student
+      const userRes = await client.query(
+        `SELECT id, role FROM users WHERE id = $1`,
+        [student_id]
+      );
+
+      if (userRes.rowCount === 0) {
+        throw new Error("User không tồn tại");
+      }
+
+      if (userRes.rows[0].role !== "student") {
+        throw new Error("Chỉ học sinh mới được đăng ký khóa học");
+      }
+
+      // 2️⃣ Check course tồn tại
+      const courseRes = await client.query(
+        `SELECT id, price FROM courses WHERE id = $1`,
+        [course_id]
+      );
+
+      if (courseRes.rowCount === 0) {
+        throw new Error("Khóa học không tồn tại");
+      }
+
+      // 3️⃣ Check đã đăng ký chưa
+      const enrolledRes = await client.query(
+        `
+      SELECT id 
+      FROM course_enrollments
+      WHERE student_id = $1 AND course_id = $2
+      `,
+        [student_id, course_id]
+      );
+
+      if (enrolledRes.rowCount > 0) {
+        throw new Error("Bạn đã đăng ký khóa học này rồi");
+      }
+
+      // 4️⃣ Insert enrollment
+      const enrollResult = await client.query(
+        `
+      INSERT INTO course_enrollments (student_id, course_id)
+      VALUES ($1, $2)
+      RETURNING *
+      `,
+        [student_id, course_id]
+      );
+
+      await client.query("COMMIT");
+
+      return {
+        success: true,
+        enrollment: enrollResult.rows[0]
+      };
+
+    } catch (error) {
+      await client.query("ROLLBACK");
+      console.error("Enroll course error:", error.message);
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
+
 
   async getAll() {
     const query = `

@@ -4,6 +4,36 @@ import { success, error } from "../../utils/response.js";
 import { uploadToGCS } from "../../utils/uploadFile.js";
 
 /* =====================================================
+ 🎓 HỌC SINH ĐĂNG KÝ / MUA KHÓA HỌC
+===================================================== */
+export const enrollCourse = async (req, res) => {
+  try {
+    const student_id = req.user.id; // lấy từ JWT middleware
+    const course_id = req.params.id;
+
+    if (!course_id) {
+      return error(res, "course_id là bắt buộc", 400);
+    }
+
+    const result = await courseService.enrollCourse({
+      student_id,
+      course_id
+    });
+
+    return success(
+      res,
+      result.enrollment,
+      "Enroll course successfully"
+    );
+
+  } catch (err) {
+    console.error("Enroll course error:", err.message);
+    return error(res, err.message, 400);
+  }
+};
+
+
+/* =====================================================
  🤖 TẠO KHÓA HỌC BẰNG AI
 ===================================================== */
 export const createCourseWithAI = async (req, res) => {
@@ -112,6 +142,42 @@ export const createCourse = async (req, res) => {
     return error(res, err.message);
   }
 };
+
+/* =====================================================
+ 📌 CẬP NHẬT GIÁ + THUMBNAIL (CHO KHÓA HỌC AI)
+===================================================== */
+export const updateCourseMetadata = async (req, res) => {
+  try {
+    const courseId = req.params.id;
+    const { price } = req.body;
+
+    let thumbnailUrl = null;
+
+    if (req.file) {
+      thumbnailUrl = await uploadToGCS(req.file, "thumbnails");
+    }
+
+    const updated = await courseService.updateCourseMetadata(
+      courseId,
+      {
+        price,
+        thumbnail: thumbnailUrl
+      }
+    );
+
+    if (!updated) return error(res, "Course not found", 404);
+
+    return success(
+      res,
+      updated,
+      "Course metadata updated successfully"
+    );
+  } catch (err) {
+    console.error("Update course metadata error:", err);
+    return error(res, err.message);
+  }
+};
+
 
 /* =====================================================
  📌 CẬP NHẬT KHÓA HỌC
