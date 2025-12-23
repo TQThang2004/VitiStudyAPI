@@ -1,10 +1,10 @@
 import { GoogleGenAI } from "@google/genai";
 
 const ai = new GoogleGenAI({
-    apiKey: process.env.GEMINI_API_KEY || "AIzaSyCQ_KpW1FtHYDQJdT3SeYW2BHk9QvVYYCc"
+    apiKey: process.env.GEMINI_API_KEY
 });
 
-/**
+/**x7
  * Generate exam using Gemini AI
  * @param {Object} params - Parameters for generating exam
  * @param {string} params.subject - Subject of the exam
@@ -123,5 +123,82 @@ Trả về kết quả theo định dạng JSON sau (chỉ trả về JSON, khô
     } catch (error) {
         console.error("Error generating exam with AI:", error);
         throw new Error(`Failed to generate exam: ${error.message}`);
+    }
+};
+
+/**
+ * Check SHORT_ANSWER type question using AI
+ * @param {Object} params - Parameters for checking answer
+ * @param {string} params.question - The question text
+ * @param {string} params.userAnswer - User's answer
+ * @param {string} params.correctAnswer - Correct answer from database
+ * @returns {Object} Evaluation result with isCorrect and feedback
+ */
+export const checkShortAnswer = async ({
+    question,
+    userAnswer,
+    correctAnswer
+}) => {
+    try {
+        const prompt = `
+Bạn là một giáo viên chấm bài. Hãy đánh giá câu trả lời của học sinh theo tiêu chí sau:
+
+CÂU HỎI:
+${question}
+
+ĐÁP ÁN CHUẨN (từ cơ sở dữ liệu):
+${correctAnswer}
+
+CÂU TRẢ LỜI CỦA HỌC SINH:
+${userAnswer}
+
+TIÊU CHÍ ĐÁNH GIÁ:
+- Câu trả lời của học sinh cần đạt ít nhất 70% độ chính xác so với đáp án chuẩn
+- Không cần trùng khớp hoàn toàn về từ ngữ, nhưng phải đúng về ý nghĩa và nội dung chính
+- Chấp nhận các cách diễn đạt khác nhau nếu ý nghĩa tương đương
+- Bỏ qua lỗi chính tả nhỏ, sai dấu câu không ảnh hưởng đến ý nghĩa
+- Nếu đáp án là số hoặc công thức, cần chính xác hơn
+
+YÊU CẦU:
+Trả về kết quả theo định dạng JSON sau (chỉ trả về JSON, không có text khác):
+{
+    "isCorrect": true/false,
+    "accuracy": <số từ 0-100, ví dụ: 75>,
+    "feedback": "Nhận xét ngắn gọn về câu trả lời (1-2 câu)"
+}
+
+Lưu ý: 
+- "isCorrect" là true nếu accuracy >= 70, false nếu < 70
+- "feedback" nên khích lệ nếu đúng, hoặc gợi ý cải thiện nếu chưa đúng
+`;
+
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt
+        });
+
+        const text = response.text;
+
+        // Extract JSON from response
+        let jsonText = text.trim();
+        if (jsonText.startsWith("```json")) {
+            jsonText = jsonText.replace(/```json\n?/g, "").replace(/```\n?/g, "");
+        } else if (jsonText.startsWith("```")) {
+            jsonText = jsonText.replace(/```\n?/g, "");
+        }
+
+        const result = JSON.parse(jsonText);
+
+        return {
+            success: true,
+            data: {
+                isCorrect: result.isCorrect,
+                accuracy: result.accuracy,
+                feedback: result.feedback
+            }
+        };
+    } catch (error) {
+        console.error("Error checking short answer with AI:", error);
+        throw new Error(`Failed to check answer: ${error.message}`);
     }
 };

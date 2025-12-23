@@ -1,5 +1,5 @@
 import { validationResult } from "express-validator";
-import { generateExamWithAI } from "../services/GeminiService.js";
+import { generateExamWithAI } from "../services/exam/GeminiService.js";
 
 /**
  * Generate exam using AI

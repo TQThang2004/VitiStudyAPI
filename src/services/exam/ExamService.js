@@ -1,4 +1,4 @@
-import pool from "../config/db.js";
+import pool from "../../config/db.js";
 
 const createExam = async (payload) => {
   const client = await pool.connect();
@@ -168,4 +168,22 @@ const getExamById = async (examId) => {
   }
 };
 
-export default { createExam, getExamById };
+const getAllExams = async () => {
+  const client = await pool.connect();
+  try {
+    const examsQuery = `
+      SELECT id, teacher_id, title, subject, description, 
+             duration_minutes, is_active, created_at, updated_at
+      FROM exams
+      ORDER BY created_at DESC
+    `;
+    
+    const examsRes = await client.query(examsQuery);
+    
+    return examsRes.rows;
+  } finally {
+    client.release();
+  }
+};
+
+export default { createExam, getExamById, getAllExams };

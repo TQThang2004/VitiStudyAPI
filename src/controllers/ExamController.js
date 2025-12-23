@@ -1,5 +1,5 @@
 import { validationResult } from "express-validator";
-import examService from "../services/ExamService.js";
+import examService from "../services/exam/ExamService.js";
 import { success, error } from "../utils/response.js";
 
 export const createExam = async (req, res) => {
@@ -38,6 +38,17 @@ export const getExam = async (req, res) => {
     return success(res, exam, "Exam retrieved successfully");
   } catch (err) {
     console.error("getExam error:", err);
+    return error(res, err.message || "Internal Server Error", 500);
+  }
+};
+
+export const getAllExams = async (req, res) => {
+  try {
+    const result = await examService.getAllExams();
+    
+    return success(res, result, "Exams retrieved successfully");
+  } catch (err) {
+    console.error("getAllExams error:", err);
     return error(res, err.message || "Internal Server Error", 500);
   }
 };

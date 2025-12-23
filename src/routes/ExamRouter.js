@@ -1,6 +1,6 @@
 import express from "express";
 import { body } from "express-validator";
-import { createExam, getExam } from "../controllers/ExamController.js";
+import { createExam, getExam, getAllExams } from "../controllers/ExamController.js";
 import { generateAIExam } from "../controllers/AIExamController.js";
 import authMiddleware from "../middlewares/AuthMiddleware.js";
 import checkRoles from "../middlewares/CheckRole.js"
@@ -39,6 +39,11 @@ examRouter.post("/create",
     checkRoles(["admin", "teacher"]),
     createExamValidation,
     createExam
+);
+
+examRouter.get("/",
+    authMiddleware,
+    getAllExams
 );
 
 examRouter.get("/:id",
