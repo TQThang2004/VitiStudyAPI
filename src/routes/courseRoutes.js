@@ -1,31 +1,45 @@
 import express from "express";
 import { body } from "express-validator";
 import upload from "../middlewares/upload.js";
+import authenticate from "../middlewares/authMiddleware.js";
+
+
+
 import {
   getCourses,
   getCourseById,
   getCoursesByTeacher,
   createCourse,
-  createCourseWithAI, // 🔥 THÊM
+  createCourseWithAI,
   updateCourse,
-  deleteCourse
+  updateCourseMetadata,
+  deleteCourse,
+  enrollCourse
 } from "../controllers/courseController/courseController.js";
 
 const router = express.Router();
 
-// =========================
-// Validation cho tạo khóa học thủ công
-// =========================
+/* =====================================================
+   VALIDATION – TẠO KHÓA HỌC THỦ CÔNG
+===================================================== */
 const courseValidation = [
   body("title").notEmpty().withMessage("Title is required"),
   body("description").notEmpty().withMessage("Description is required"),
-  body("price").isInt({ min: 0 }).withMessage("Price must be >= 0"),
+  body("price")
+    .isInt({ min: 0 })
+    .withMessage("Price must be a number >= 0"),
   body("level").notEmpty().withMessage("Level is required"),
 ];
 
-// =========================
-// ROUTES
-// =========================
+
+/* ---------- ENROLL (STUDENT) ---------- */
+
+// 🎓 Học sinh đăng ký / mua khóa học
+router.post(
+  "/:id/enroll",
+  authenticate,   // bắt buộc đăng nhập
+  enrollCourse
+);
 
 // 📌 Lấy tất cả khóa học
 router.get("/", getCourses);
@@ -36,7 +50,9 @@ router.get("/teacher/:teacherId", getCoursesByTeacher);
 // 📌 Lấy chi tiết khóa học
 router.get("/:id", getCourseById);
 
-// 📌 Tạo khóa học THỦ CÔNG (có thumbnail)
+/* ---------- CREATE ---------- */
+
+// 📌 Tạo khóa học THỦ CÔNG (có upload thumbnail)
 router.post(
   "/create",
   upload.single("thumbnail"),
@@ -44,16 +60,31 @@ router.post(
   createCourse
 );
 
-// 🤖 TẠO KHÓA HỌC BẰNG AI (KHÔNG upload, KHÔNG validation form cũ)
+// 🤖 Tạo khóa học bằng AI
 router.post(
   "/create-ai",
   createCourseWithAI
 );
 
-// 📌 Cập nhật khóa học
-router.put("/:id", updateCourse);
+/* ---------- UPDATE ---------- */
 
-// 📌 Xóa khóa học
+// ✏️ Cập nhật metadata (GIÁ + THUMBNAIL)
+// 👉 dùng riêng cho khóa học AI sau khi tạo
+router.put(
+  "/:id/metadata",
+  upload.single("thumbnail"),
+  updateCourseMetadata
+);
+
+// ✏️ Cập nhật toàn bộ khóa học (manual / admin)
+router.put(
+  "/:id",
+  updateCourse
+);
+
+/* ---------- DELETE ---------- */
+
+// 🗑 Xóa khóa học
 router.delete("/:id", deleteCourse);
 
 export default router;
