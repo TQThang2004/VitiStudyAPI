@@ -21,32 +21,44 @@ const courseService = {
     try {
       await client.query("BEGIN");
 
-      // 1️⃣ Prompt tạo khóa học
+      // =========================
+      // 1️⃣ PROMPT (ĐÃ SỬA)
+      // =========================
       const prompt = `
-Hãy tạo một KHÓA HỌC E-LEARNING với các thông tin sau:
+Bạn là một hệ thống tạo nội dung khóa học E-LEARNING.
+
+Thông tin đầu vào:
 - Môn học: ${subject}
 - Chủ đề: ${topic}
 - Trình độ: ${level}
 - Số section: ${numSections}
 - Số bài học mỗi section: ${lessonsPerSection}
-- Ngôn ngữ: Việt Nam
+- Ngôn ngữ: Tiếng Việt
 
-Yêu cầu:
-1. 1 khóa học có nhiều section
-2. 1 section có nhiều lesson
-3. Lesson có type: video hoặc document
-4. Không tạo link video hoặc tài liệu thật (để trống "")
-5. Tổng số lesson = số section × số lesson mỗi section
+YÊU CẦU BẮT BUỘC:
+1. Section.title CHỈ là tên nội dung
+   ❌ KHÔNG chứa "Section", "Chương", số thứ tự
+   ✅ Ví dụ đúng: "Bối cảnh lịch sử và Sự chuẩn bị"
 
-Chỉ trả về JSON, không text khác:
+2. Lesson.title cũng KHÔNG đánh số
+   ❌ Sai: "Bài 1: Khái niệm"
+   ✅ Đúng: "Khái niệm cơ bản"
+
+3. Mỗi section có đúng ${lessonsPerSection} lesson
+4. Tổng số lesson = ${numSections * lessonsPerSection}
+5. Lesson.type chỉ có: "video" hoặc "document"
+6. Không tạo link thật → để chuỗi rỗng ""
+7. CHỈ trả về JSON thuần, KHÔNG markdown, KHÔNG giải thích
+
+FORMAT JSON CHÍNH XÁC:
 
 {
   "title": "Tên khóa học",
-  "description": "Mô tả khóa học",
+  "description": "Mô tả ngắn gọn khóa học",
   "price": 0,
   "duration": "8 tuần",
-  "level": "Beginner",
-  "total_lessons": 12,
+  "level": "${level}",
+  "total_lessons": ${numSections * lessonsPerSection},
   "thumbnail": "",
   "sections": [
     {
@@ -65,20 +77,29 @@ Chỉ trả về JSON, không text khác:
 }
 `;
 
-      // 2️⃣ Gọi Gemini
+      // =========================
+      // 2️⃣ GỌI GEMINI
+      // =========================
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: prompt
       });
 
       let jsonText = response.text.trim();
+
+      // clean markdown nếu có
       if (jsonText.startsWith("```")) {
-        jsonText = jsonText.replace(/```json/g, "").replace(/```/g, "");
+        jsonText = jsonText
+          .replace(/```json/gi, "")
+          .replace(/```/g, "")
+          .trim();
       }
 
       const courseData = JSON.parse(jsonText);
 
-      // 3️⃣ Insert course
+      // =========================
+      // 3️⃣ INSERT COURSE
+      // =========================
       const courseResult = await client.query(
         `
         INSERT INTO courses
@@ -100,16 +121,32 @@ Chỉ trả về JSON, không text khác:
 
       const course = courseResult.rows[0];
 
-      // 4️⃣ Insert sections + lessons
+      // =========================
+      // 4️⃣ INSERT SECTIONS + LESSONS
+      // (CÓ CLEAN TITLE PHÒNG THỦ)
+      // =========================
       for (const section of courseData.sections) {
+
+        // 🧼 CLEAN SECTION TITLE
+        const cleanSectionTitle = section.title
+          .replace(/^section\s*\d+[:\-]?\s*/i, "")
+          .replace(/^chương\s*\d+[:\-]?\s*/i, "")
+          .trim();
+
         const sectionResult = await client.query(
           `INSERT INTO sections (course_id, title) VALUES ($1,$2) RETURNING id`,
-          [course.id, section.title]
+          [course.id, cleanSectionTitle]
         );
 
         const sectionId = sectionResult.rows[0].id;
 
         for (const lesson of section.lessons) {
+
+          // 🧼 CLEAN LESSON TITLE
+          const cleanLessonTitle = lesson.title
+            .replace(/^bài\s*\d+[:\-]?\s*/i, "")
+            .trim();
+
           await client.query(
             `
             INSERT INTO lessons
@@ -118,7 +155,7 @@ Chỉ trả về JSON, không text khác:
             `,
             [
               sectionId,
-              lesson.title,
+              cleanLessonTitle,
               lesson.type,
               lesson.duration,
               lesson.video_url || "",
