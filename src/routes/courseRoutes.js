@@ -1,9 +1,7 @@
 import express from "express";
 import { body } from "express-validator";
 import upload from "../middlewares/upload.js";
-import authenticate from "../middlewares/authMiddleware.js";
-
-
+import authenticate from "../middlewares/AuthMiddleware.js";
 
 import {
   getCourses,
@@ -14,7 +12,10 @@ import {
   updateCourse,
   updateCourseMetadata,
   deleteCourse,
-  enrollCourse
+  enrollCourse,
+  getEnrolledCourses,
+  getStudentsInCourse,
+  getTeacherCoursesWithStudents
 } from "../controllers/courseController/courseController.js";
 
 const router = express.Router();
@@ -41,7 +42,29 @@ router.post(
   enrollCourse
 );
 
-// 📌 Lấy tất cả khóa học
+// 📚 Lấy danh sách khóa học đã mua của người dùng
+router.get(
+  "/enrolled/my-courses",
+  authenticate,   // bắt buộc đăng nhập
+  getEnrolledCourses
+);
+
+/* ---------- TEACHER MANAGEMENT ---------- */
+
+// 👨‍🏫 Giáo viên xem danh sách học viên trong khóa học
+router.get(
+  "/:id/students",
+  authenticate,   // bắt buộc đăng nhập
+  getStudentsInCourse
+);
+
+// � Lấy tất cả khóa học của giáo viên và học viên trong mỗi khóa
+router.get(
+  "/teacher/:teacherId/courses-with-students",
+  getTeacherCoursesWithStudents
+);
+
+// �📌 Lấy tất cả khóa học
 router.get("/", getCourses);
 
 // 📌 Lấy khóa học theo giáo viên

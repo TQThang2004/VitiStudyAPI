@@ -52,3 +52,60 @@ export const getAllExams = async (req, res) => {
     return error(res, err.message || "Internal Server Error", 500);
   }
 };
+
+export const getExamsByCourseId = async (req, res) => {
+  try {
+    const { course_id } = req.params;
+
+    if (!course_id || isNaN(course_id)) {
+      return error(res, "Invalid course ID", 400);
+    }
+
+    const result = await examService.getExamsByCourseId(parseInt(course_id));
+    
+    return success(res, result, "Exams retrieved successfully");
+  } catch (err) {
+    console.error("getExamsByCourseId error:", err);
+    return error(res, err.message || "Internal Server Error", 500);
+  }
+};
+
+export const getExamAttempts = async (req, res) => {
+  try {
+    const { id: exam_id } = req.params;
+    const teacher_id = req.user.id;
+
+    if (!exam_id || isNaN(exam_id)) {
+      return error(res, "Invalid exam ID", 400);
+    }
+
+    // Kiểm tra role
+    if (req.user.role !== 'teacher' && req.user.role !== 'admin') {
+      return error(res, "Chỉ giáo viên mới có quyền xem kết quả bài kiểm tra", 403);
+    }
+
+    const result = await examService.getExamAttemptsByTeacher(parseInt(exam_id), teacher_id);
+    
+    return success(res, result, "Exam attempts retrieved successfully");
+  } catch (err) {
+    console.error("getExamAttempts error:", err);
+    return error(res, err.message || "Internal Server Error", 500);
+  }
+};
+
+export const getTeacherCoursesWithExams = async (req, res) => {
+  try {
+    const { teacherId } = req.params;
+
+    if (!teacherId || isNaN(teacherId)) {
+      return error(res, "Invalid teacher ID", 400);
+    }
+
+    const result = await examService.getTeacherCoursesWithExams(parseInt(teacherId));
+    
+    return success(res, result, "Teacher courses with exams retrieved successfully");
+  } catch (err) {
+    console.error("getTeacherCoursesWithExams error:", err);
+    return error(res, err.message || "Internal Server Error", 500);
+  }
+};

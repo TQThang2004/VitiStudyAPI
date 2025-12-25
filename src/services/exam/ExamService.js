@@ -7,9 +7,9 @@ const createExam = async (payload) => {
 
     // 1) Insert exam (add teacher_id)
     const insertExamText = `
-      INSERT INTO exams (teacher_id, title, subject, description, duration_minutes, is_active, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-      RETURNING id, teacher_id, title, subject, description, duration_minutes, is_active, created_at, updated_at
+      INSERT INTO exams (teacher_id, title, subject, description, duration_minutes, is_active, course_id, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      RETURNING id, teacher_id, title, subject, description, duration_minutes, is_active, course_id, created_at, updated_at
     `;
     const examValues = [
       payload.teacher_id, // new: teacher_id
@@ -17,7 +17,8 @@ const createExam = async (payload) => {
       payload.subject || null,
       payload.description || null,
       payload.duration_minutes || null,
-      payload.is_active ? true : false
+      payload.is_active ? true : false,
+      payload.course_id || null
     ];
     const examRes = await client.query(insertExamText, examValues);
     const exam = examRes.rows[0];
@@ -186,4 +187,152 @@ const getAllExams = async () => {
   }
 };
 
-export default { createExam, getExamById, getAllExams };
+const getExamsByCourseId = async (courseId) => {
+  const client = await pool.connect();
+  try {
+    const examsQuery = `
+      SELECT id, teacher_id, title, subject, description, 
+             duration_minutes, is_active, course_id, created_at, updated_at
+      FROM exams
+      WHERE course_id = $1
+      ORDER BY created_at DESC
+    `;
+    
+    const examsRes = await client.query(examsQuery, [courseId]);
+    
+    return examsRes.rows;
+  } finally {
+    client.release();
+  }
+};
+
+const getExamAttemptsByTeacher = async (examId, teacherId) => {
+  const client = await pool.connect();
+  try {
+    // 1️⃣ Kiểm tra exam tồn tại và thuộc về giáo viên này
+    const examCheck = await client.query(
+      `SELECT id, title, teacher_id, subject, description, duration_minutes, course_id FROM exams WHERE id = $1`,
+      [examId]
+    );
+
+    if (examCheck.rowCount === 0) {
+      throw new Error("Bài kiểm tra không tồn tại");
+    }
+
+    if (examCheck.rows[0].teacher_id !== teacherId) {
+      throw new Error("Bạn không có quyền truy cập bài kiểm tra này");
+    }
+
+    const examInfo = examCheck.rows[0];
+
+    // 2️⃣ Lấy danh sách học viên đã làm bài
+    const attemptsQuery = `
+      SELECT 
+        ea.id AS attempt_id,
+        ea.user_id AS student_id,
+        u.username AS student_name,
+        u.email AS student_email,
+        u.avatar AS student_avatar,
+        ea.started_at,
+        ea.completed_at,
+        ea.total_score,
+        ea.ai_feedback_summary
+      FROM exam_attempts ea
+      INNER JOIN users u ON ea.user_id = u.id
+      WHERE ea.exam_id = $1
+      ORDER BY ea.completed_at DESC NULLS LAST, ea.started_at DESC
+    `;
+
+    const attemptsRes = await client.query(attemptsQuery, [examId]);
+
+    // 3️⃣ Đếm số học viên đã hoàn thành
+    const completedCount = attemptsRes.rows.filter(a => a.completed_at !== null).length;
+
+    return {
+      exam: examInfo,
+      attempts: attemptsRes.rows,
+      total_attempts: attemptsRes.rows.length,
+      completed_attempts: completedCount,
+      in_progress_attempts: attemptsRes.rows.length - completedCount
+    };
+
+  } catch (error) {
+    console.error("Get exam attempts error:", error);
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+const getTeacherCoursesWithExams = async (teacherId) => {
+  const client = await pool.connect();
+  try {
+    // 1️⃣ Kiểm tra giáo viên tồn tại
+    const teacherCheck = await client.query(
+      `SELECT id, username, role FROM users WHERE id = $1`,
+      [teacherId]
+    );
+
+    if (teacherCheck.rowCount === 0) {
+      throw new Error("Giáo viên không tồn tại");
+    }
+
+    if (teacherCheck.rows[0].role !== 'teacher') {
+      throw new Error("User này không phải là giáo viên");
+    }
+
+    // 2️⃣ Lấy tất cả khóa học của giáo viên
+    const coursesQuery = `
+      SELECT 
+        c.id AS course_id,
+        c.title AS course_title
+      FROM courses c
+      WHERE c.teacher_id = $1
+      ORDER BY c.created_at DESC
+    `;
+
+    const coursesRes = await client.query(coursesQuery, [teacherId]);
+    const courses = coursesRes.rows;
+
+    // 3️⃣ Lấy tất cả bài kiểm tra cho từng khóa học
+    for (const course of courses) {
+      const examsQuery = `
+        SELECT 
+          e.id AS exam_id,
+          e.title AS exam_title,
+          e.subject,
+          e.description,
+          e.duration_minutes,
+          e.is_active,
+          e.created_at,
+          e.updated_at,
+          COUNT(DISTINCT ea.id) AS total_attempts
+        FROM exams e
+        LEFT JOIN exam_attempts ea ON e.id = ea.exam_id
+        WHERE e.course_id = $1
+        GROUP BY e.id
+        ORDER BY e.created_at DESC
+      `;
+
+      const examsRes = await client.query(examsQuery, [course.course_id]);
+      course.exams = examsRes.rows;
+    }
+
+    return {
+      teacher: {
+        id: teacherCheck.rows[0].id,
+        username: teacherCheck.rows[0].username
+      },
+      courses: courses,
+      total_courses: courses.length
+    };
+
+  } catch (error) {
+    console.error("Get teacher courses with exams error:", error);
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+export default { createExam, getExamById, getAllExams, getExamsByCourseId, getExamAttemptsByTeacher, getTeacherCoursesWithExams };

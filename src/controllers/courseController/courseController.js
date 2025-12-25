@@ -32,6 +32,83 @@ export const enrollCourse = async (req, res) => {
   }
 };
 
+/* =====================================================
+ 📚 LẤY DANH SÁCH KHÓA HỌC ĐÃ MUA CỦA NGƯỜI DÙNG
+===================================================== */
+export const getEnrolledCourses = async (req, res) => {
+  try {
+    const student_id = req.user.id; // lấy từ JWT middleware
+
+    const courses = await courseService.getEnrolledCourses(student_id);
+    
+    return success(
+      res,
+      courses,
+      "Fetched enrolled courses successfully"
+    );
+
+  } catch (err) {
+    console.error("Get enrolled courses error:", err.message);
+    return error(res, err.message, 400);
+  }
+};
+
+/* =====================================================
+ 👨‍🏫 GIÁO VIÊN XEM DANH SÁCH HỌC VIÊN TRONG KHÓA HỌC
+===================================================== */
+export const getStudentsInCourse = async (req, res) => {
+  try {
+    const { id: course_id } = req.params;
+    const teacher_id = req.user.id; // Lấy từ JWT token
+
+    // Kiểm tra role
+    if (req.user.role !== 'teacher') {
+      return error(res, "Chỉ giáo viên mới có quyền xem danh sách học viên", 403);
+    }
+
+    const result = await courseService.getStudentsInCourse(course_id, teacher_id);
+
+    return success(
+      res,
+      {
+        course: result.course,
+        students: result.students,
+        total_students: result.students.length
+      },
+      "Fetched students in course successfully"
+    );
+
+  } catch (err) {
+    console.error("Get students in course error:", err.message);
+    return error(res, err.message, 400);
+  }
+};
+
+/* =====================================================
+ 📋 LẤY TẤT CẢ KHÓA HỌC CỦA GIÁO VIÊN VÀ HỌC VIÊN TRONG MỖI KHÓA
+===================================================== */
+export const getTeacherCoursesWithStudents = async (req, res) => {
+  try {
+    const { teacherId } = req.params;
+
+    if (!teacherId || isNaN(teacherId)) {
+      return error(res, "Teacher ID không hợp lệ", 400);
+    }
+
+    const result = await courseService.getTeacherCoursesWithStudents(parseInt(teacherId));
+
+    return success(
+      res,
+      result,
+      "Fetched teacher courses with students successfully"
+    );
+
+  } catch (err) {
+    console.error("Get teacher courses with students error:", err.message);
+    return error(res, err.message, 400);
+  }
+};
+
 
 /* =====================================================
  🤖 TẠO KHÓA HỌC BẰNG AI

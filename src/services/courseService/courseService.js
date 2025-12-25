@@ -390,6 +390,172 @@ FORMAT JSON CHÍNH XÁC:
     const query = `DELETE FROM courses WHERE id=$1 RETURNING *`;
     const result = await db.query(query, [id]);
     return result.rows[0];
+  },
+
+  // ================== GET ENROLLED COURSES ==================
+  async getEnrolledCourses(student_id) {
+    const query = `
+      SELECT 
+        c.*,
+        u.username AS teacher_name,
+        u.avatar AS teacher_avatar,
+        ce.enrolled_at,
+        ce.status AS enrollment_status,
+        ce.progress
+      FROM course_enrollments ce
+      INNER JOIN courses c ON ce.course_id = c.id
+      LEFT JOIN users u ON c.teacher_id = u.id
+      WHERE ce.student_id = $1
+      ORDER BY ce.enrolled_at DESC
+    `;
+    const result = await db.query(query, [student_id]);
+    return result.rows;
+  },
+
+  // ================== GET STUDENTS IN COURSE (FOR TEACHER) ==================
+  async getStudentsInCourse(course_id, teacher_id) {
+    const client = await db.connect();
+
+    try {
+      // 1️⃣ Kiểm tra khóa học tồn tại và thuộc về giáo viên này
+      const courseCheck = await client.query(
+        `SELECT id, title, teacher_id FROM courses WHERE id = $1`,
+        [course_id]
+      );
+
+      if (courseCheck.rowCount === 0) {
+        throw new Error("Khóa học không tồn tại");
+      }
+
+      if (courseCheck.rows[0].teacher_id !== teacher_id) {
+        throw new Error("Bạn không có quyền truy cập khóa học này");
+      }
+
+      // 2️⃣ Lấy thông tin khóa học
+      const courseInfo = await client.query(
+        `
+        SELECT 
+          c.*,
+          u.username AS teacher_name,
+          u.avatar AS teacher_avatar,
+          u.email AS teacher_email,
+          COUNT(DISTINCT ce.student_id) AS total_students
+        FROM courses c
+        LEFT JOIN users u ON c.teacher_id = u.id
+        LEFT JOIN course_enrollments ce ON c.id = ce.course_id
+        WHERE c.id = $1
+        GROUP BY c.id, u.id
+        `,
+        [course_id]
+      );
+
+      // 3️⃣ Lấy danh sách học viên trong khóa học
+      const students = await client.query(
+        `
+        SELECT 
+          u.id AS student_id,
+          u.username AS student_name,
+          u.email AS student_email,
+          u.avatar AS student_avatar,
+          u.phone_number,
+          ce.enrolled_at,
+          ce.status AS enrollment_status,
+          ce.progress,
+          ce.id AS enrollment_id
+        FROM course_enrollments ce
+        INNER JOIN users u ON ce.student_id = u.id
+        WHERE ce.course_id = $1
+        ORDER BY ce.enrolled_at DESC
+        `,
+        [course_id]
+      );
+
+      return {
+        course: courseInfo.rows[0],
+        students: students.rows
+      };
+
+    } catch (error) {
+      console.error("Get students in course error:", error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
+
+  // ================== GET TEACHER COURSES WITH STUDENTS ==================
+  async getTeacherCoursesWithStudents(teacher_id) {
+    const client = await db.connect();
+
+    try {
+      // 1️⃣ Kiểm tra giáo viên tồn tại
+      const teacherCheck = await client.query(
+        `SELECT id, username, role FROM users WHERE id = $1`,
+        [teacher_id]
+      );
+
+      if (teacherCheck.rowCount === 0) {
+        throw new Error("Giáo viên không tồn tại");
+      }
+
+      if (teacherCheck.rows[0].role !== 'teacher') {
+        throw new Error("User này không phải là giáo viên");
+      }
+
+      // 2️⃣ Lấy tất cả khóa học của giáo viên
+      const coursesResult = await client.query(
+        `
+        SELECT 
+          c.*,
+          COUNT(DISTINCT ce.student_id) AS total_students
+        FROM courses c
+        LEFT JOIN course_enrollments ce ON c.id = ce.course_id
+        WHERE c.teacher_id = $1
+        GROUP BY c.id
+        ORDER BY c.created_at DESC
+        `,
+        [teacher_id]
+      );
+
+      const courses = coursesResult.rows;
+
+      // 3️⃣ Lấy danh sách học viên cho từng khóa học
+      for (const course of courses) {
+        const studentsResult = await client.query(
+          `
+          SELECT 
+            u.id AS student_id,
+            u.username AS student_name,
+            u.email AS student_email,
+            u.avatar AS student_avatar,
+            u.phone_number,
+            ce.enrolled_at,
+            ce.status AS enrollment_status,
+            ce.progress,
+            ce.id AS enrollment_id
+          FROM course_enrollments ce
+          INNER JOIN users u ON ce.student_id = u.id
+          WHERE ce.course_id = $1
+          ORDER BY ce.enrolled_at DESC
+          `,
+          [course.id]
+        );
+
+        course.students = studentsResult.rows;
+      }
+
+      return {
+        teacher: teacherCheck.rows[0],
+        courses: courses,
+        total_courses: courses.length
+      };
+
+    } catch (error) {
+      console.error("Get teacher courses with students error:", error);
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 };
 
